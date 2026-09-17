@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Рюкзак Памяти — собери учебники</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  body {
+    background: radial-gradient(1200px 800px at 50% -10%, #2a1140 0%, #170a26 55%, #0b0514 100%);
+    background-attachment: fixed;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  #game {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    max-width: 1500px;
+    overflow: hidden;
+  }
+
+  /* ----- overlaid title screen ----- */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    text-align: center;
+    background: rgba(11, 5, 20, 0.85);
+    backdrop-filter: blur(6px);
+    padding: 20px;
+  }
+  .overlay.hidden { display: none; }
+
+  .logo-title {
+    font-size: 54px;
+    font-weight: 900;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    background: linear-gradient(180deg, #fff 20%, #ff4d6d 60%, #ffb703 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 40px rgba(255, 77, 109, 0.35);
+    line-height: 1;
+  }
+  .logo-sub {
+    font-size: 16px;
+    letter-spacing: 10px;
+    text-transform: uppercase;
+    color: #8f7bb0;
+    margin-top: -8px;
+  }
+  .how-to { font-size: 15px; color: #cfc0e8; max-width: 460px; line-height: 1.55; }
+  .how-to b { color: #ffb703; }
+  .big-btn {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #0b0514;
+    background: linear-gradient(180deg, #ffd166, #ffb703);
+    border: none;
+    border-radius: 50px;
+    padding: 16px 48px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #8a5a00, 0 12px 30px rgba(255, 183, 3, 0.35);
+    transition: transform 0.1s;
+  }
+  .big-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #8a5a00; }
+
+  .btn-row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  .big-btn.small { font-size: 15px; padding: 13px 26px; letter-spacing: 1px; }
+  .big-btn.gray {
+    background: linear-gradient(180deg, #5a5a6e, #3a3a4c);
+    color: #fff;
+    box-shadow: 0 5px 0 #23232f, 0 10px 24px rgba(0,0,0,0.3);
+  }
+  .big-btn.gray:active { transform: translateY(3px); box-shadow: 0 2px 0 #23232f; }
+
+  /* ----- color picker button in topbar ----- */
+  .pill.color-btn {
+    position: absolute;
+    right: 18px;
+    cursor: pointer;
+    pointer-events: auto;
+    border-color: #ff4d6d;
+    color: #fff;
+    background: rgba(255, 77, 109, 0.18);
+    transition: transform 0.1s;
+  }
+  .pill.color-btn:hover { transform: scale(1.05); }
+  .pill.color-btn.hidden { display: none; }
+  #saveBtn { right: 140px; border-color: #57e389; background: rgba(87, 227, 137, 0.18); }
+
+  /* ----- color panel overlay ----- */
+  .color-wrap {
+    background: rgba(23, 10, 38, 0.96);
+    border: 1px solid #4a2d6e;
+    border-radius: 18px;
+    padding: 22px 28px;
+    max-width: 420px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+    text-align: center;
+  }
+  .color-title {
+    font-size: 20px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: #ffb703;
+    margin-bottom: 6px;
+  }
+  .color-sub { font-size: 13px; color: #8f7bb0; margin-bottom: 16px; }
+  .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; justify-items: center; }
+  .swatch {
+    width: 62px; height: 62px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid rgba(255,255,255,0.25);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    transition: transform 0.1s, border-color 0.1s;
+    position: relative;
+  }
+  .swatch:hover { transform: scale(1.12); }
+  .swatch.active { border-color: #ffb703; box-shadow: 0 0 0 3px rgba(255,183,3,0.4); }
+  .swatch.locked { opacity: 0.3; cursor: not-allowed; }
+  .swatch.locked::after {
+    content: "🔒";
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .swatch .name {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 4px;
+    font-size: 10px;
+    color: #cfc0e8;
+    white-space: nowrap;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  /* ----- top bar ----- */
+  #topbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 18px;
+    z-index: 30;
+    pointer-events: none;
+  }
+  .pill {
+    background: rgba(23, 10, 38, 0.85);
+    border: 1px solid #4a2d6e;
+    border-radius: 30px;
+    padding: 8px 18px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffb703;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .pill.level { position: absolute; left: 18px; color: #fff; }
+  .pill.level span { color: #ff4d6d; font-size: 18px; }
+
+  .timer-big {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: rgba(23, 10, 38, 0.9);
+    border: 1px solid #4a2d6e;
+    border-radius: 40px;
+    padding: 8px 34px 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+    pointer-events: none;
+  }
+  .timer-label {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #8f7bb0;
+  }
+  .timer-big .value {
+    font-size: 36px;
+    font-weight: 900;
+    line-height: 1;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+  }
+  .timer-big .value.warn { color: #ff2b2b; animation: blinker 0.5s infinite alternate; }
+  @keyframes blinker { from { opacity: 1; } to { opacity: 0.35; } }
+  .timer-big.done .value { color: #57e389; }
+
+  /* ----- layout zones ----- */
+  #colLayout {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+  }
+
+  #leftPanel, #rightPanel {
+    position: absolute;
+    top: 80px; bottom: 24px;
+    z-index: 20;
+    transition: opacity 0.5s;
+  }
+  #leftPanel { left: 14px; width: 240px; }
+  #rightPanel { right: 14px; width: 260px; }
+
+  .panel-card {
+    background: rgba(23, 10, 38, 0.9);
+    border: 1px solid #4a2d6e;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+  }
+  .panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid #4a2d6e;
+  }
+  .panel-title {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #ffb703;
+  }
+  .panel-body { padding: 10px; max-height: calc(100vh - 220px); overflow-y: auto; }
+
+  .lesson {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    margin-bottom: 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    border-left: 4px solid;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .lesson .num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; color: #cfc0e8;
+  }
+
+  /* ----- textbooks grid ----- */
+  .book-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .book {
+    position: relative;
+    border-radius: 10px;
+    padding: 12px 8px 10px;
+    text-align: center;
+    cursor: pointer;
+    border: 3px solid #4a2d6e;
+    background: #241036;
+    transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s, opacity 0.12s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    min-height: 92px;
+  }
+  .book:hover { transform: translateY(-3px); }
+  .book.selected {
+    border-color: #ffb703;
+    box-shadow: 0 0 0 2px #ffb703, 0 8px 20px rgba(255,183,3,0.35);
+    transform: translateY(-3px);
+  }
+  .book.packed {
+    border-color: #57e389;
+    box-shadow: 0 0 0 2px #57e389;
+    opacity: 0.55;
+    cursor: default;
+  }
+  .book .b-color { width: 100%; height: 8px; border-radius: 4px; margin-bottom: 8px; }
+  .book .b-name { font-size: 12.5px; font-weight: 700; line-height: 1.25; word-break: break-word; }
+  .book .b-pin { position: absolute; top: 4px; right: 7px; font-size: 10px; opacity: 0.7; }
+
+  /* ----- backpack ----- */
+  #center {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 15;
+    transition: opacity 0.5s;
+  }
+  .backpack {
+    position: relative;
+    width: 340px; height: 420px;
+    --bp-l: #2e1545;
+    --bp-m: #201036;
+    --bp-d: #34154f;
+    --bp-e: #4a2d6e;
+    --bp-dark: #241036;
+    --bp-top: #38204f;
+    --bp-tb: #221036;
+    --bp-p1: #3b2159;
+    --bp-p2: #2a1540;
+    --bp-pe: #543a7a;
+    --bp-h: #3a2158;
+    transition: transform 0.1s;
+  }
+  .bp-no-books { opacity: 0.25; filter: grayscale(0.7); }
+  .bp-left-arm, .bp-right-arm {
+    position: absolute;
+    top: -52px;
+    width: 70px; height: 120px;
+    background: linear-gradient(180deg, var(--bp-dark), var(--bp-l));
+    border: 3px solid var(--bp-e);
+  }
+  .bp-left-arm { left: -18px; border-radius: 50% 20% 8px 8px; transform: rotate(14deg); }
+  .bp-right-arm { right: -18px; border-radius: 20% 50% 8px 8px; transform: rotate(-14deg); }
+  .bp-top {
+    position: absolute;
+    top: 46px; left: 30px; right: 30px;
+    height: 40px;
+    background: linear-gradient(180deg, var(--bp-e), var(--bp-top));
+    border: 3px solid var(--bp-tb);
+    border-radius: 10px 10px 0 0;
+  }
+  .bp-handle {
+    position: absolute;
+    top: 16px; left: 50%; transform: translateX(-50%);
+    width: 150px; height: 36px;
+    border: 8px solid var(--bp-h);
+    border-bottom: none;
+    border-radius: 18px 18px 0 0;
+  }
+  .buckle { position: absolute; bottom: 58px; width: 70px; height: 18px; background: #ffd166; border-radius: 6px; border: 2px solid #8a5a00; }
+  .buckle-left { left: -34px; }
+  .buckle-right { right: -44px; transform: rotate(8deg); }
+
+  .bp-body {
+    position: absolute;
+    top: 84px; left: 0; right: 0; bottom: 40px;
+    background: linear-gradient(135deg, var(--bp-l) 0%, var(--bp-m) 45%, var(--bp-d) 100%);
+    border: 4px solid var(--bp-e);
+    border-radius: 30px 30px 44px 44px;
+    box-shadow: inset -14px -18px 30px rgba(0,0,0,0.5), inset 10px 12px 24px rgba(255,255,255,0.06), 0 18px 40px rgba(0,0,0,0.6);
+  }
+  .bp-main-pocket {
+    position: absolute;
+    top: 20px; left: 20px; right: 20px;
+    height: 47%;
+    background: linear-gradient(180deg, var(--bp-p1), var(--bp-p2));
+    border: 3px solid var(--bp-pe);
+    border-radius: 18px;
+    box-shadow: inset 0 0 18px rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .bp-note {
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: rgba(255,183,3,0.85);
+    text-align: center;
+    line-height: 1.5;
+  }
+  .bp-note small { display: block; font-size: 19px; letter-spacing: 8px; color: rgba(255,255,255,0.7); }
+
+  .spine {
+    position: absolute;
+    top: 12px;
+    width: 22px;
+    height: 78px;
+    border-radius: 4px 4px 0 0;
+    border: 2px solid rgba(0,0,0,0.35);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+  }
+  .spine span {
+    position: absolute;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%) rotate(180deg);
+    writing-mode: vertical-rl;
+    font-size: 10px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    white-space: nowrap;
+  }
+  .spine.sel { top: 4px; }
+
+  .bp-snack {
+    position: absolute;
+    top: 26px; right: -6px;
+    width: 26px; height: 26px;
+    background: #ff4d6d;
+    border-radius: 50%;
+    border: 3px dashed #ffd166;
+  }
+  .bp-lower-pocket {
+    position: absolute;
+    bottom: 22px; left: 28px; right: 28px;
+    height: 29%;
+    background: linear-gradient(180deg, var(--bp-d), var(--bp-dark));
+    border: 3px solid var(--bp-pe);
+    border-radius: 16px;
+    box-shadow: inset 0 0 14px rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .bp-zip { position: absolute; top: 2px; left: 30px; right: 30px; height: 0; border-top: 3px dashed rgba(255,209,102,0.6); }
+  .bp-side-pocket {
+    position: absolute;
+    bottom: 34px;
+    width: 42px; height: 68px;
+    background: linear-gradient(180deg, var(--bp-p1), var(--bp-dark));
+    border: 3px solid var(--bp-e);
+    border-radius: 10px;
+  }
+  .bp-side-pocket.left { left: -14px; transform: rotate(-4deg); }
+  .bp-side-pocket.right { right: -14px; transform: rotate(4deg); }
+  .bp-side-pocket .bottle { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 16px; height: 26px; background: #ff4d6d; border-radius: 4px; }
+
+  .bp-teeth {
+    position: absolute;
+    bottom: -4px; left: 0; right: 0;
+    height: 26px;
+    display: flex;
+  }
+  .tooth { flex: 1; clip-path: polygon(0 0, 100% 0, 50% 100%); background: #f5f3ef; }
+  .tooth:nth-child(even) { background: #e8e3da; }
+
+  .bp-label {
+    position: absolute;
+    top: 130px; right: -26px;
+    transform: rotate(9deg);
+    background: #ff4d6d;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  }
+  .bp-text-sg {
+    position: absolute;
+    bottom: 8px; left: 0; right: 0;
+    text-align: center;
+    font-size: 21px;
+    font-weight: 900;
+    letter-spacing: 5px;
+    color: rgba(255,255,255,0.9);
+    text-shadow: 0 0 12px rgba(255,77,109,0.8);
+  }
+
+  .floor {
+    position: absolute;
+    bottom: -30px;
+    left: 8px; right: 8px;
+    height: 44px;
+    background: radial-gradient(ellipse at center, rgba(255,183,3,0.28) 0%, rgba(0,0,0,0) 70%);
+    border-radius: 50%;
+    z-index: 0;
+  }
+
+  /* ----- feedback ----- */
+  #feedback {
+    position: absolute;
+    left: 50%;
+    bottom: 34px;
+    transform: translateX(-50%) translateY(20px);
+    background: #241036;
+    border: 2px solid #ffb703;
+    border-radius: 14px;
+    padding: 12px 26px;
+    font-size: 18px;
+    font-weight: 800;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.25s, transform 0.25s;
+    z-index: 25;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    pointer-events: none;
+  }
+  #feedback.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #feedback.good { border-color: #57e389; }
+  #feedback.bad { border-color: #ff4d6d; }
+
+  #confirmWrap {
+    position: absolute;
+    left: 50%;
+    bottom: 20px;
+    transform: translateX(-50%);
+    z-index: 24;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  #confirmBtn {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #0b0514;
+    background: linear-gradient(180deg, #ffd166, #ffb703);
+    border: none;
+    border-radius: 40px;
+    padding: 13px 34px;
+    cursor: pointer;
+    box-shadow: 0 5px 0 #8a5a00, 0 10px 24px rgba(255,183,3,0.3);
+  }
+  #confirmBtn:active { transform: translateY(3px); box-shadow: 0 2px 0 #8a5a00; }
+  #confirmBtn:disabled { opacity: 0.45; cursor: default; }
+  #counter {
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffb703;
+    background: rgba(23,10,38,0.9);
+    border: 1px solid #4a2d6e;
+    padding: 10px 16px;
+    border-radius: 30px;
+  }
+
+  .lose-info { font-size: 16px; color: #cfc0e8; line-height: 1.6; }
+  .lose-info b { color: #ff4d6d; }
+
+  /* responsive */
+  @media (max-width: 900px) {
+    #topbar { height: 64px; padding: 0 10px; }
+    .pill { font-size: 13px; padding: 6px 12px; }
+    .pill.level { left: 10px; }
+    .pill.color-btn { right: 10px; padding: 6px 10px; }
+    #saveBtn { right: 116px; padding: 6px 10px; }
+    .timer-big { padding: 6px 22px 8px; }
+    .timer-big .value { font-size: 28px; }
+    .timer-label { font-size: 9px; letter-spacing: 2px; }
+    .backpack { width: 260px; height: 320px; }
+    .bp-handle { top: 8px; width: 120px; height: 28px; border-width: 6px; }
+    .bp-left-arm, .bp-right-arm { top: -38px; width: 52px; height: 90px; }
+    .bp-top { top: 34px; height: 30px; }
+    .bp-body { top: 62px; bottom: 30px; }
+    .bp-main-pocket { top: 14px; left: 14px; right: 14px; height: 46%; }
+    .bp-side-pocket { width: 34px; height: 54px; }
+    .bp-label { top: 100px; right: -20px; font-size: 11px; padding: 6px 10px; }
+    .bp-text-sg { font-size: 16px; bottom: 6px; }
+    .bp-teeth { height: 20px; }
+    .buckle { width: 52px; height: 14px; bottom: 42px; }
+    .bp-note { font-size: 10px; }
+    .bp-note small { font-size: 15px; }
+    .spine span { font-size: 8px; }
+  }
+
+  @media (max-width: 640px) {
+    #colLayout {
+      position: absolute;
+      top: 72px; left: 0; right: 0; bottom: 96px;
+      display: flex;
+      gap: 8px;
+    }
+    #leftPanel, #rightPanel {
+      position: relative;
+      top: auto; bottom: auto;
+      width: auto;
+      flex: 1 1 0;
+      min-width: 0;
+      max-height: 100%;
+      z-index: 30;
+      margin: 0 0;
+    }
+    #center { z-index: 15; }
+    .backpack { width: 230px; height: 280px; }
+    .bp-handle { top: 6px; width: 105px; height: 24px; border-width: 5px; }
+    .bp-left-arm, .bp-right-arm { top: -32px; width: 46px; height: 78px; }
+    .bp-top { top: 28px; height: 26px; }
+    .bp-body { top: 54px; bottom: 24px; }
+    .bp-main-pocket { top: 12px; left: 12px; right: 12px; height: 45%; border-radius: 14px; }
+    .bp-side-pocket { bottom: 26px; width: 30px; height: 46px; }
+    .bp-label { top: 86px; right: -16px; font-size: 10px; padding: 5px 8px; }
+    .bp-text-sg { font-size: 14px; bottom: 5px; letter-spacing: 3px; }
+    .bp-teeth { height: 18px; }
+    .bp-note { font-size: 9px; }
+    .bp-note small { font-size: 13px; }
+    .spine { width: 18px; height: 62px; }
+    .spine.sel { top: 2px; }
+    .spine span { font-size: 7px; }
+    .floor { bottom: -22px; height: 34px; }
+    .panel-head { padding: 7px 10px; }
+    .panel-title { font-size: 11px; }
+    .panel-body { padding: 7px; max-height: 100%; }
+    .lesson { font-size: 12px; padding: 6px 8px; margin-bottom: 5px; gap: 6px; }
+    .lesson .num { width: 18px; height: 18px; font-size: 10px; }
+    .book { padding: 8px 4px 6px; min-height: 74px; }
+    .book .b-name { font-size: 10px; }
+    .book .b-color { height: 6px; margin-bottom: 6px; }
+    .book-grid { gap: 6px; }
+    #topbar { height: 64px; }
+    .timer-big { padding: 5px 14px 7px; }
+    .timer-big .value { font-size: 22px; }
+    .timer-label { display: none; }
+    .pill.color-btn { right: 8px; padding: 5px 8px; }
+    #saveBtn { right: 92px; padding: 5px 8px; }
+    #feedback { font-size: 15px; bottom: 98px; width: 90%; padding: 10px 14px; }
+    .logo-title { font-size: 32px; letter-spacing: 3px; }
+    .logo-sub { letter-spacing: 6px; font-size: 12px; }
+    .how-to { font-size: 13px; }
+    #confirmBtn { padding: 11px 26px; font-size: 16px; }
+  }
+
+  @media (max-height: 700px) and (min-width: 641px) {
+    .backpack { width: 250px; height: 300px; }
+    .bp-handle { top: 6px; width: 115px; height: 26px; border-width: 6px; }
+    .bp-top { top: 30px; height: 28px; }
+    .bp-body { top: 56px; bottom: 24px; }
+    .spine span { font-size: 8px; }
+    .bp-note small { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+<div id="game">
+
+  <!-- ============ TITLE SCREEN ============ -->
+  <div id="menuScreen" class="overlay">
+    <div class="logo-title">SPRAY<span style="color:#ff4d6d">BACK</span></div>
+    <div class="logo-sub">игра памяти для крутых</div>
+    <div class="how-to">
+      <b>Запомни расписание!</b> Оно и предметы видны только <b id="menuTime">10 секунд</b>.<br>
+      Когда таймер дойдёт до нуля, список пропадёт.<br>
+      Теперь нажми на учебники, которые были в расписании, и жми <b>«Собрать»</b>.<br>
+      Лишний или пропущенный учебник — <b>поражение</b>.<br>
+      С каждым уровнем учебников на 1 больше, а времени на запоминание на 2 секунды больше. С 2-го уровня открывается смена цвета рюкзака!
+    </div>
+    <button class="big-btn" id="startBtn">Играть</button>
+    <div class="btn-row">
+      <button class="big-btn small gray" id="freshBtn">🔄 Начать заново</button>
+      <button class="big-btn small gray" id="resumeBtn">⏪ Вернуть прогресс</button>
+    </div>
+  </div>
+
+  <!-- ============ LOSE SCREEN ============ -->
+  <div id="loseScreen" class="overlay hidden">
+    <div class="logo-title" style="font-size:42px">ПОРАЖЕНИЕ</div>
+    <div class="lose-info" id="loseInfo"></div>
+    <div class="btn-row">
+      <button class="big-btn" id="restartBtn">Начать заново</button>
+      <button class="big-btn small gray" id="loseResumeBtn">Вернуть прогресс</button>
+    </div>
+  </div>
+
+  <!-- ============ TOP BAR ============ -->
+  <div id="topbar">
+    <div class="pill level">УРОВЕНЬ&nbsp;<span id="levelNum">1</span></div>
+    <div class="timer-big" id="timerBig">
+      <div class="timer-label">⏱ Запоминай</div>
+      <div class="value" id="timerText">10</div>
+    </div>
+    <button class="pill color-btn hidden" id="colorBtn">🎨 Цвет</button>
+    <button class="pill color-btn hidden" id="saveBtn" title="Сохранить текущий прогресс">💾 Сохранить</button>
+  </div>
+
+  <!-- ============ COLOR PICKER ============ -->
+  <div id="colorScreen" class="overlay hidden">
+    <div class="color-wrap">
+      <div class="color-title">Цвет рюкзака</div>
+      <div class="color-sub" id="colorSub">С каждым уровнем открывается новый цвет</div>
+      <div class="swatches" id="swatches"></div>
+      <div style="margin-top:26px" class="btn-row">
+        <button class="big-btn small" id="colorCloseBtn">Готово</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ COLUMN LAYOUT ============ -->
+  <div id="colLayout">
+
+    <!-- LEFT: SCHEDULE -->
+    <div id="leftPanel">
+      <div class="panel-card">
+        <div class="panel-head">
+          <div class="panel-title">📋 Расписание</div>
+          <div class="panel-title" id="listHint" style="color:#8f7bb0"></div>
+        </div>
+        <div class="panel-body" id="scheduleList"></div>
+      </div>
+    </div>
+
+    <!-- CENTER: BACKPACK -->
+    <div id="center">
+      <div class="backpack" id="backpack">
+        <div class="bp-left-arm"></div>
+        <div class="bp-right-arm"></div>
+        <div class="bp-handle"></div>
+        <div class="bp-top"></div>
+        <div class="bp-body">
+          <div class="bp-snack"></div>
+          <div class="bp-label">SHARK ATTACK</div>
+          <div class="bp-main-pocket" id="mainPocket">
+            <div class="bp-note" id="pocketNote">Выбери учебники<br><small>и сложи их</small></div>
+          </div>
+          <div class="buckle buckle-left"></div>
+          <div class="buckle buckle-right"></div>
+          <div class="bp-side-pocket left"><div class="bottle"></div></div>
+          <div class="bp-side-pocket right"><div class="bottle"></div></div>
+          <div class="bp-lower-pocket" id="lowerPocket">
+            <div class="bp-zip"></div>
+          </div>
+        </div>
+        <div class="bp-teeth" id="teethRow"></div>
+        <div class="bp-text-sg">SPRAY<span style="color:#ff4d6d">GROUND</span></div>
+      </div>
+      <div class="floor"></div>
+    </div>
+
+    <!-- RIGHT: TEXTBOOKS -->
+    <div id="rightPanel">
+      <div class="panel-card">
+        <div class="panel-head">
+          <div class="panel-title">📚 Учебники</div>
+        </div>
+        <div class="panel-body">
+          <div class="book-grid" id="bookGrid"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============ BOTTOM BAR ============ -->
+  <div id="confirmWrap">
+    <div id="counter" hidden>0</div>
+    <button id="confirmBtn" disabled>Собрать</button>
+  </div>
+
+  <div id="feedback"></div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- data ----------
+  var SUBJECTS = ["Алгебра", "Геометрия", "Литература", "История", "Биология", "Информатика", "Физика", "Химия", "География", "Английский"];
+  var COLORS = ["#ff4d6d", "#ffb703", "#4d9fff", "#57e389", "#c77dff", "#ff7a00", "#00c9a7", "#f5428d", "#ffd166", "#7ce3ff"];
+  var BASE_SEC = 10;
+  var LEVEL_STEP = 2;
+
+  // backpack color themes (l=main light, m=mid, d=deep, e=edge, dark, top, tb, p1, p2= pocket, pe, h=handle)
+  var THEMES = [
+    { name: "Фиолет", base: "2e1545" },
+    { name: "Синий", base: "123f7a" },
+    { name: "Зелёный", base: "1f7a3f" },
+    { name: "Красный", base: "9e1f1f" },
+    { name: "Оранжевый", base: "c65a1a" },
+    { name: "Золотой", base: "b89218" },
+    { name: "Розовый", base: "c22f7e" },
+    { name: "Голубой", base: "1a8a9e" },
+    { name: "Бордо", base: "5e1030" },
+    { name: "Лайм", base: "5c9e1f" },
+    { name: "Тиркис", base: "0e7a6e" },
+    { name: "Графит", base: "3a3a45" }
+  ];
+  var THEME_CSS_VARS = [
+    ["--bp-l", "--bp-m", "--bp-d", "--bp-e", "--bp-dark", "--bp-top", "--bp-tb", "--bp-p1", "--bp-p2", "--bp-pe", "--bp-h"]
+  ];
+
+  function hexMix(a, b, t) { // t: 0 -> a, 1 -> b
+    var pa = [parseInt(a.substr(0,2),16), parseInt(a.substr(2,2),16), parseInt(a.substr(4,2),16)];
+    var pb = [parseInt(b.substr(0,2),16), parseInt(b.substr(2,2),16), parseInt(b.substr(4,2),16)];
+    return "#" + pa.map(function (c, i) {
+      return ("0" + Math.round(c + (pb[i] - c) * t).toString(16)).slice(-2);
+    }).join("");
+  }
+  function darken(c, f) { return hexMix(c, "000000", f); }
+  function lighten(c, f) { return hexMix(c, "ffffff", f); }
+  function themeVars(idx) {
+    var b = THEMES[idx].base;
+    return {
+      "--bp-l": "#" + b,
+      "--bp-m": darken(b, 0.30),
+      "--bp-d": darken(b, 0.42),
+      "--bp-e": lighten(b, 0.30),
+      "--bp-dark": darken(b, 0.55),
+      "--bp-top": darken(b, 0.35),
+      "--bp-tb": darken(b, 0.65),
+      "--bp-p1": lighten(b, 0.15),
+      "--bp-p2": darken(b, 0.42),
+      "--bp-pe": lighten(b, 0.45),
+      "--bp-h": darken(b, 0.32)
+    };
+  }
+  function levelSeconds() { return BASE_SEC + (state.level - 1) * LEVEL_STEP; }
+  function unlockedColors() { return Math.max(1, Math.min(THEMES.length, progressLevel())); }
+  function progressLevel() { return Math.max(1, state.level, readStore("sbLevel", 1)); }
+
+  function readStore(k, d) {
+    try { var v = parseInt(localStorage.getItem(k), 10); return (v && v > 0) ? v : d; } catch (e) { return d; }
+  }
+  function writeStore(k, v) {
+    try { localStorage.setItem(k, String(v)); } catch (e) {}
+  }
+
+  // ---------- state ----------
+  var state = {
+    level: 1,
+    colorIdx: 0,
+    phase: "menu",       // menu | memorize | pack | result | lost
+    correct: [],
+    pool: [],
+    timeLeft: 0,
+    timerId: null,
+    selected: new Set(),
+    packed: new Set(),
+    shakes: false
+  };
+
+  // ---------- dom ----------
+  function $(id) { return document.getElementById(id); }
+var D = {
+    menu: $("menuScreen"), lose: $("loseScreen"), loseInfo: $("loseInfo"),
+    start: $("startBtn"), fresh: $("freshBtn"), resume: $("resumeBtn"),
+    loseResume: $("loseResumeBtn"), restart: $("restartBtn"),
+    level: $("levelNum"), timerText: $("timerText"), timerBig: $("timerBig"),
+    schedule: $("scheduleList"), listHint: $("listHint"), books: $("bookGrid"),
+    pocket: $("mainPocket"), pocketNote: $("pocketNote"),
+    backpack: $("backpack"), center: $("center"),
+    left: $("leftPanel"), right: $("rightPanel"),
+    confirm: $("confirmBtn"), counter: $("counter"), feedback: $("feedback"),
+    colorBtn: $("colorBtn"), colorScreen: $("colorScreen"), swatches: $("swatches"),
+    colorSub: $("colorSub"), colorClose: $("colorCloseBtn"), menuTime: $("menuTime"),
+    saveBtn: $("saveBtn")
+  };
+
+  // shark teeth row
+  (function () {
+    var t = $("teethRow"), n = 12, html = "";
+    for (var i = 0; i < n; i++) html += '<div class="tooth"></div>';
+    t.innerHTML = html;
+  })();
+
+  // shake animation css
+  var sh = document.createElement("style");
+  sh.textContent = '.backpack.shake{animation:shake 0.4s ease 2}@keyframes shake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}';
+  document.head.appendChild(sh);
+
+  // ---------- helpers ----------
+  function shuffle(a) {
+    var r = a.slice(), i, j, t;
+    for (i = r.length - 1; i > 0; i--) {
+      j = Math.floor(Math.random() * (i + 1));
+      t = r[i]; r[i] = r[j]; r[j] = t;
+    }
+    return r;
+  }
+  function choose(n, src) { return shuffle(src).slice(0, n); }
+  function colorOf(subj) { return COLORS[SUBJECTS.indexOf(subj) % COLORS.length]; }
+
+  // ---------- rendering ----------
+  function renderSchedule(list) {
+    var html = "";
+    list.forEach(function (s, i) {
+      html += '<div class="lesson" style="border-left-color:' + colorOf(s) + '">' +
+              '<div class="num">' + (i + 1) + '</div><div>' + s + '</div></div>';
+    });
+    D.schedule.innerHTML = html;
+  }
+
+  function renderBooks() {
+    var html = "";
+    state.pool.forEach(function (s) {
+      var cls = ["book"];
+      if (state.selected.has(s)) cls.push("selected");
+      if (state.packed.has(s)) cls.push("packed");
+      html += '<div class="' + cls.join(" ") + '" data-subj="' + s + '">' +
+              '<div class="b-pin">★</div>' +
+              '<div class="b-color" style="background:' + colorOf(s) + '"></div>' +
+              '<div class="b-name">' + s + '</div></div>';
+    });
+    D.books.innerHTML = html;
+    Array.prototype.forEach.call(D.books.querySelectorAll(".book"), function (b) {
+      b.addEventListener("click", function () { onBookClick(b.dataset.subj); });
+    });
+  }
+
+  function renderSpines() {
+    D.pocket.querySelectorAll(".spine").forEach(function (s) { s.remove(); });
+    var shown = [];
+    state.selected.forEach(function (n) { shown.push(n); });
+    state.packed.forEach(function (n) { if (shown.indexOf(n) === -1) shown.push(n); });
+
+    if (shown.length === 0) {
+      D.pocketNote.style.display = "block";
+      D.backpack.classList.add("bp-no-books");
+    } else {
+      D.pocketNote.style.display = "none";
+      D.backpack.classList.remove("bp-no-books");
+    }
+
+    var w = D.pocket.clientWidth || 200;
+    var maxLeft = Math.max(12, w - 60);
+    shown.sort().forEach(function (s, i) {
+      var c = colorOf(s);
+      var d = document.createElement("div");
+      d.className = "spine" + (state.packed.has(s) ? "" : " sel");
+      d.style.background = "linear-gradient(180deg," + c + "," + c + "cc)";
+      d.style.left = Math.min(14 + i * 26, maxLeft) + "px";
+      d.innerHTML = "<span>" + s + "</span>";
+      D.pocket.appendChild(d);
+    });
+  }
+
+  function updateCounter() {
+    var total = state.correct.length;
+    var done = state.selected.size;
+    D.counter.textContent = "Выбрано: " + done + " / " + total;
+    D.counter.hidden = false;
+    D.confirm.disabled = done === 0;
+  }
+
+  function setCenterOpacity(o) { D.center.style.opacity = o; }
+
+  // ---------- progress / color ----------
+  function saveProgress() {
+    writeStore("sbLevel", Math.max(progressLevel(), state.level));
+  }
+  function paintBackpack(idx) {
+    var v = themeVars(idx);
+    var s = D.backpack.style;
+    var keys = THEME_CSS_VARS[0];
+    keys.forEach(function (k) { s.setProperty(k, v[k]); });
+    state.colorIdx = idx;
+    writeStore("sbColor", idx);
+  }
+  function updateColorButton() {
+    D.colorBtn.classList.toggle("hidden", state.level < 2);
+    D.saveBtn.classList.remove("hidden");
+  }
+
+  // ---------- flow ----------
+  function startLevel() {
+    if (state.timerId) { clearInterval(state.timerId); state.timerId = null; }
+
+    var total = 4 + state.level;            // level 1 -> 5 books
+    state.correct = choose(total, SUBJECTS);
+
+    var extrasCount = Math.min(2, Math.max(1, Math.floor(total / 3)));
+    var extras = SUBJECTS.filter(function (s) { return state.correct.indexOf(s) === -1; });
+    extras = choose(Math.min(extrasCount, extras.length), extras);
+
+    state.pool = shuffle(state.correct.concat(extras));
+    state.selected = new Set();
+    state.packed = new Set();
+
+    renderSchedule(state.correct);
+    renderBooks();
+    renderSpines();
+
+    D.level.textContent = state.level;
+    D.listHint.textContent = "— запомни!";
+    D.confirm.disabled = true;
+    D.counter.hidden = true;
+    D.left.style.opacity = "1";
+    D.right.style.opacity = "1";
+    setCenterOpacity(0.55);
+    hideFeedback();
+    updateColorButton();
+    saveProgress();
+
+    state.phase = "memorize";
+    resetTimerUI();
+    startTimer();
+  }
+
+  function startTimer() {
+    state.timeLeft = levelSeconds();
+    updateTimerUI();
+    state.timerId = setInterval(function () {
+      state.timeLeft--;
+      updateTimerUI();
+      if (state.timeLeft <= 0) {
+        clearInterval(state.timerId);
+        state.timerId = null;
+        endMemorize();
+      }
+    }, 1000);
+  }
+
+  function updateTimerUI() {
+    var s = Math.max(0, state.timeLeft);
+    D.timerText.textContent = (s <= 9 && s > 0 ? "0" : "") + s;
+    D.timerBig.classList.toggle("warn", s <= 3 && s > 0);
+  }
+
+  function resetTimerUI() {
+    D.timerText.textContent = levelSeconds();
+    D.timerBig.classList.remove("warn", "done");
+  }
+
+  function endMemorize() {
+    if (state.phase !== "memorize") return;
+    state.phase = "pack";
+
+    // schedule disappears
+    D.left.style.opacity = "0";
+    D.listHint.textContent = "";
+
+    // textbooks stay visible so player can pick from them
+    D.right.style.opacity = "1";
+    setCenterOpacity(1);
+
+    D.timerBig.classList.remove("warn");
+    D.timerBig.classList.add("done");
+    D.timerText.textContent = "✓";
+
+    showFeedback("Вспоминай! Выбери нужные учебники и нажми «Собрать»", "good");
+    D.counter.textContent = "Выбрано: 0 / " + state.correct.length;
+    D.counter.hidden = false;
+    D.confirm.disabled = true;
+  }
+
+  // ---------- interactions ----------
+  function onBookClick(subj) {
+    if (state.phase !== "pack") return;
+    if (state.packed.has(subj)) return;
+    if (state.selected.has(subj)) state.selected.delete(subj);
+    else state.selected.add(subj);
+    renderBooks();
+    renderSpines();
+    updateCounter();
+  }
+
+  function confirmPack() {
+    if (state.phase !== "pack") return;
+
+    var need = state.correct.slice().sort().join("|");
+    var got = Array.from(state.selected).sort().join("|");
+
+    if (need === got) {
+      state.phase = "result";
+      D.confirm.disabled = true;
+      state.packed = new Set(state.correct);
+      state.selected = new Set();
+      renderBooks();
+      renderSpines();
+      showFeedback("✅ Уровень пройден! Собрано идеально.", "good");
+      setTimeout(function () {
+        if (state.phase !== "result") return;
+        state.level++;
+        startLevel();
+      }, 1500);
+    } else {
+      state.phase = "lost";
+      D.confirm.disabled = true;
+      var missing = state.correct.filter(function (s) { return !state.selected.has(s); });
+      var extra = Array.from(state.selected).filter(function (s) { return state.correct.indexOf(s) === -1; });
+      var msg = "❌ Неправильно!";
+      if (missing.length) msg += " Не хватило: " + missing.join(", ") + ".";
+      if (extra.length) msg += " Лишние: " + extra.join(", ") + ".";
+      showFeedback(msg, "bad");
+      D.backpack.classList.add("shake");
+      setTimeout(function () {
+        D.backpack.classList.remove("shake");
+        showLose();
+      }, 1500);
+    }
+  }
+
+  // ---------- feedback / lose ----------
+  function showFeedback(txt, kind) {
+    D.feedback.textContent = txt;
+    D.feedback.className = "show " + (kind === "good" ? "good" : "bad");
+  }
+  function hideFeedback() { D.feedback.className = ""; }
+
+  function showLose() {
+    D.loseInfo.innerHTML =
+      "Ты достиг <b>уровня " + state.level + "</b>.<br>" +
+      "Нужно было: <b>" + state.correct.join(", ") + "</b>.<br>" +
+      "Читай расписание внимательнее — и вперёд!";
+    D.menu.classList.add("hidden");
+    D.lose.classList.remove("hidden");
+  }
+
+  // ---------- color picker ----------
+  function renderSwatches() {
+    var n = unlockedColors();
+    var html = "";
+    THEMES.forEach(function (t, i) {
+      var locked = i >= n;
+      html += '<div class="swatch' + (state.colorIdx === i ? " active" : "") +
+              (locked ? " locked" : "") +
+              '" style="background:#' + t.base + '" data-i="' + i + '" title="' + t.name + '">' +
+              '<span class="name">' + t.name + '</span></div>';
+    });
+    D.swatches.innerHTML = html;
+    D.colorSub.textContent = "Открыто цветов: " + n + " (всего " + THEMES.length + "). Новый цвет открывается с новым уровнем.";
+    Array.prototype.forEach.call(D.swatches.querySelectorAll(".swatch"), function (el) {
+      el.addEventListener("click", function () {
+        var i = parseInt(el.dataset.i, 10);
+        if (i >= n) return;
+        paintBackpack(i);
+        renderSwatches();
+      });
+    });
+  }
+  function openColors() {
+    renderSwatches();
+    D.colorScreen.classList.remove("hidden");
+  }
+  function closeColors() {
+    D.colorScreen.classList.add("hidden");
+    if (state.phase === "memorize" && !state.timerId && state.timeLeft > 0) {
+      state.timerId = setInterval(function () {
+        state.timeLeft--;
+        updateTimerUI();
+        if (state.timeLeft <= 0) {
+          clearInterval(state.timerId);
+          state.timerId = null;
+          endMemorize();
+        }
+      }, 1000);
+    }
+  }
+
+  // ---------- start helpers ----------
+  function beginNewGame() {
+    writeStore("sbLevel", 1);
+    state.level = 1;
+    D.menu.classList.add("hidden");
+    D.lose.classList.add("hidden");
+    startLevel();
+  }
+  function beginResume() {
+    state.level = 1;
+    state.level = Math.max(1, readStore("sbLevel", 1));
+    D.menu.classList.add("hidden");
+    D.lose.classList.add("hidden");
+    startLevel();
+  }
+
+  // ---------- bindings ----------
+  D.start.addEventListener("click", beginResume);
+  D.fresh.addEventListener("click", beginNewGame);
+  D.resume.addEventListener("click", beginResume);
+  D.restart.addEventListener("click", beginNewGame);
+  D.loseResume.addEventListener("click", beginResume);
+
+  D.confirm.addEventListener("click", confirmPack);
+  D.colorBtn.addEventListener("click", function () {
+    if (state.level >= 2) {
+      if (state.timerId) { clearInterval(state.timerId); state.timerId = null; }
+      openColors();
+    }
+  });
+  D.saveBtn.addEventListener("click", function () {
+    writeStore("sbLevel", Math.max(progressLevel(), state.level));
+    writeStore("sbColor", state.colorIdx);
+    showFeedback("💾 Прогресс сохранён! Уровень " + state.level, "good");
+    setTimeout(function () { if (state.phase === "memorize" || state.phase === "pack") hideFeedback(); }, 1200);
+  });
+  D.colorClose.addEventListener("click", closeColors);
+  D.colorScreen.addEventListener("click", function (e) { if (e.target === D.colorScreen) closeColors(); });
+
+  // init: restore saved color, paint backpack
+  state.level = Math.max(1, readStore("sbLevel", 1));
+  var savedColor = readStore("sbColor", 0);
+  paintBackpack(savedColor < THEMES.length ? savedColor : 0);
+
+  // show menu initially
+  state.phase = "menu";
+})();
+</script>
+</body>
+</html>
